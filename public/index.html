@@ -1,0 +1,328 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>簡単ファイル共有システム</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+    }
+    .upload-container {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      margin-bottom: 20px;
+    }
+    .file-list {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .file-item {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .file-item:last-child {
+      border-bottom: none;
+    }
+    .file-item a {
+      color: #0366d6;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+    }
+    .file-item a:hover {
+      text-decoration: underline;
+    }
+    .file-icon {
+      margin-right: 10px;
+      font-size: 1.2em;
+    }
+    .upload-btn {
+      background-color: #0366d6;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .upload-btn:hover {
+      background-color: #0255b3;
+    }
+    .delete-btn {
+      background-color: #e74c3c;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .delete-btn:hover {
+      background-color: #c0392b;
+    }
+    #file-input {
+      margin-bottom: 10px;
+    }
+    .message {
+      color: #666;
+      font-style: italic;
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+    }
+    .success {
+      color: #28a745;
+      background-color: #d4edda;
+    }
+    .error {
+      color: #dc3545;
+      background-color: #f8d7da;
+    }
+    .hidden {
+      display: none;
+    }
+    .progress-container {
+      width: 100%;
+      background-color: #f1f1f1;
+      margin: 10px 0;
+      border-radius: 5px;
+      display: none;
+    }
+    .progress-bar {
+      width: 0%;
+      height: 20px;
+      background-color: #4CAF50;
+      border-radius: 5px;
+      text-align: center;
+      line-height: 20px;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>簡単ファイル共有システム</h1>
+  
+  <div class="upload-container">
+    <h2>📤 ファイルをアップロード</h2>
+    <form id="upload-form" enctype="multipart/form-data">
+      <input type="file" id="file-input" name="files" multiple>
+      <button type="submit" class="upload-btn" id="upload-button">アップロード</button>
+    </form>
+    <div class="progress-container" id="progress-container">
+      <div class="progress-bar" id="progress-bar">0%</div>
+    </div>
+    <p class="message hidden" id="message"></p>
+  </div>
+  
+  <div class="file-list">
+    <h2>📚 利用可能なファイル</h2>
+    <div id="files-container">
+      <p>ファイルを読み込み中...</p>
+    </div>
+  </div>
+
+  <script>
+    // ファイルの拡張子に基づいてアイコンを決定する関数
+    function getFileIcon(filename) {
+      const ext = filename.split('.').pop().toLowerCase();
+      
+      const icons = {
+        'pdf': '📕',
+        'doc': '📘',
+        'docx': '📘',
+        'xls': '📗',
+        'xlsx': '📗',
+        'ppt': '📙',
+        'pptx': '📙',
+        'txt': '📄',
+        'zip': '🗃️',
+        'jpg': '🖼️',
+        'jpeg': '🖼️',
+        'png': '🖼️',
+        'gif': '🖼️'
+      };
+      
+      return icons[ext] || '📄';
+    }
+
+    // メッセージを表示する関数
+    function showMessage(text, type) {
+      const message = document.getElementById('message');
+      message.textContent = text;
+      message.classList.remove('hidden', 'success', 'error');
+      message.classList.add(type);
+      
+      // 5秒後にメッセージを消す
+      setTimeout(() => {
+        message.classList.add('hidden');
+      }, 5000);
+    }
+
+    // ファイルリストを表示する関数
+    function displayFiles(files) {
+      const container = document.getElementById('files-container');
+      container.innerHTML = '';
+      
+      if (files.length === 0) {
+        container.innerHTML = '<p>ファイルがありません</p>';
+        return;
+      }
+      
+      files.forEach(file => {
+        const fileItem = document.createElement('div');
+        fileItem.className = 'file-item';
+        
+        const fileLink = document.createElement('a');
+        fileLink.href = `/uploads/${file}`;
+        fileLink.setAttribute('download', file);
+        
+        const icon = getFileIcon(file);
+        fileLink.innerHTML = `<span class="file-icon">${icon}</span> ${file}`;
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.textContent = '削除';
+        deleteBtn.onclick = () => deleteFile(file);
+        
+        fileItem.appendChild(fileLink);
+        fileItem.appendChild(deleteBtn);
+        container.appendChild(fileItem);
+      });
+    }
+
+    // ファイルリストを取得する関数
+    async function fetchFileList() {
+      try {
+        const response = await fetch('/api/files');
+        const data = await response.json();
+        
+        if (data.files) {
+          displayFiles(data.files);
+        } else {
+          document.getElementById('files-container').innerHTML = 
+            '<p>ファイルリストの取得に失敗しました。</p>';
+        }
+      } catch (error) {
+        console.error('ファイルリストの取得に失敗しました:', error);
+        document.getElementById('files-container').innerHTML = 
+          '<p>ファイルリストの取得に失敗しました。ページを再読み込みしてください。</p>';
+      }
+    }
+
+    // ファイルをアップロードする関数
+    async function uploadFiles(formData) {
+      const progressContainer = document.getElementById('progress-container');
+      const progressBar = document.getElementById('progress-bar');
+      
+      progressContainer.style.display = 'block';
+      
+      try {
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            progressBar.style.width = percentComplete + '%';
+            progressBar.textContent = percentComplete + '%';
+          }
+        });
+        
+        xhr.onload = function() {
+          if (xhr.status === 200) {
+            const response = JSON.parse(xhr.responseText);
+            if (response.success) {
+              showMessage('ファイルのアップロードに成功しました！', 'success');
+              fetchFileList(); // ファイルリストを更新
+            } else {
+              showMessage('エラー: ' + (response.error || 'アップロードに失敗しました'), 'error');
+            }
+          } else {
+            showMessage('エラー: サーバーがエラーを返しました', 'error');
+          }
+          
+          // プログレスバーをリセット
+          setTimeout(() => {
+            progressContainer.style.display = 'none';
+            progressBar.style.width = '0%';
+            progressBar.textContent = '0%';
+          }, 1000);
+        };
+        
+        xhr.onerror = function() {
+          showMessage('エラー: ネットワークエラーが発生しました', 'error');
+          progressContainer.style.display = 'none';
+        };
+        
+        xhr.open('POST', '/api/upload-multiple', true);
+        xhr.send(formData);
+      } catch (error) {
+        console.error('アップロード中にエラーが発生しました:', error);
+        showMessage('エラー: アップロード中にエラーが発生しました', 'error');
+        progressContainer.style.display = 'none';
+      }
+    }
+
+    // ファイルを削除する関数
+    async function deleteFile(filename) {
+      if (!confirm(`${filename} を削除してもよろしいですか？`)) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/api/files/${filename}`, {
+          method: 'DELETE'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+          showMessage(`${filename} を削除しました`, 'success');
+          fetchFileList(); // ファイルリストを更新
+        } else {
+          showMessage('エラー: ' + (data.error || 'ファイルの削除に失敗しました'), 'error');
+        }
+      } catch (error) {
+        console.error('ファイルの削除に失敗しました:', error);
+        showMessage('エラー: ファイルの削除に失敗しました', 'error');
+      }
+    }
+
+    // アップロードフォームのイベントリスナー
+    document.getElementById('upload-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const fileInput = document.getElementById('file-input');
+      if (fileInput.files.length === 0) {
+        showMessage('ファイルが選択されていません。', 'error');
+        return;
+      }
+      
+      const formData = new FormData();
+      for (let i = 0; i < fileInput.files.length; i++) {
+        formData.append('files', fileInput.files[i]);
+      }
+      
+      uploadFiles(formData);
+      fileInput.value = ''; // ファイル選択をリセット
+    });
+
+    // ページ読み込み時にファイルリストを取得
+    window.addEventListener('DOMContentLoaded', fetchFileList);
+  </script>
+</body>
+</html>
